@@ -33,6 +33,7 @@ contract LotteryContract {
 
     mapping (uint256 => Lottery) public lotteryIds;
     uint256 public lotteryId;
+    mapping (uint256 => uint256) public lotteryBalances;
 
     function createLottery(uint256 _prize, uint256 _deadline) external {
         require(_deadline > block.timestamp, "Deadline must be in the future");
@@ -44,11 +45,14 @@ contract LotteryContract {
         lotteryId++;
     }
 
-    function getATicket(uint256 _lotteryId) public {
+    function getATicket(uint256 _lotteryId) public payable {
         require(lotteryIds[_lotteryId].deadline > block.timestamp, "Lottery has ended");
+        require(msg.value == 1 ether, "Ticket costs 1 ether");
+        address(this).transfer(msg.value);
         Lottery storage lottery = lotteryIds[_lotteryId];
         Ticket memory ticket = Ticket(msg.sender, lottery.ticketOwnersArray.length);
         lottery.ticketOwners[msg.sender] = ticket;
+        lotteryBalances[_lotteryId] += msg.value;
     }
 
     function chooseWinner(uint256 _lotteryId) external {
@@ -78,8 +82,10 @@ contract LotteryContract {
     }
 
 
-    function claimWinnings() external {
-
+    function claimWinnings(uint256 _lotteryId) external {
+        require(lotteryIds[_lotteryId].winner == msg.sender, "You are not the winner");
+        require(block.number <= 256, "You are too late");
+        payable(msg.sender).transfer(lotteryIds[_lotteryId].prize);
     }
 
 
