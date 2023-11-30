@@ -1,21 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
-/*
-Simple lottery
-Any user can call createLottery and a lottery will be created with a ticket purchase window
-for the next 24 hours. Once the 24 hours is up, there is a 1 hour delay,
-then the lottery is over. Generating random numbers safely on Ethereum is tricky,
-but for the purpose of this, relying on a future blockhash (which the players cannot predict),
-is good enough for this project.
-After createLottery is called people can purchaseTicket for a particular lotteryId.
-The lottery must consist of a deadline for when purchasing tickets stops,
-and time afterwards when the future blockhash determines the winner.
-The winner must then claim the winnings within 256 blocks (the maximum lookback of the blockhash function),
-otherwise, everyone can get their tickets back.
-*/
 
 contract LotteryContract {
-
     struct Ticket {
         address owner;
         uint256 ticketId;
@@ -25,6 +11,7 @@ contract LotteryContract {
         uint256 id;
         uint256 prize;
         uint256 deadline;
+        uint256 endBlock;
         address winner;
         mapping (address => Ticket) ticketOwners;
         address [] ticketOwnersArray;
@@ -45,7 +32,8 @@ contract LotteryContract {
         Lottery storage lottery = lotteryIds[lotteryId];
         lottery.id = lotteryId;
         lottery.prize = _prize;
-        lottery.deadline = _deadline;
+        lottery.deadline = _deadline + 24 hours; // Set deadline 24 hours after creation
+        lottery.endBlock = block.number + 5760; // Approx 24 hours later in blocks (15 sec per block)
         lottery.owner = msg.sender;
         lotteryId++;
         emit LotteryCreated(lottery.id, lottery.prize, lottery.deadline, lottery.owner);
@@ -54,56 +42,39 @@ contract LotteryContract {
     function getATicket(uint256 _lotteryId) public payable {
         require(lotteryIds[_lotteryId].deadline > block.timestamp, "Lottery has ended");
         require(msg.value == 1 ether, "Ticket costs 1 ether");
-        require(lotteryBalances[_lotteryId] < lotteryIds[_lotteryId].prize, "Lottery is full");
+        require(lotteryBalances[_lotteryId] + msg.value <= lotteryIds[_lotteryId].prize, "Lottery is full");
 
-        payable(msg.sender).transfer(msg.value);
         Lottery storage lottery = lotteryIds[_lotteryId];
         Ticket memory ticket = Ticket(msg.sender, lottery.ticketOwnersArray.length);
         lottery.ticketOwners[msg.sender] = ticket;
+        lottery.ticketOwnersArray.push(msg.sender);
         lotteryBalances[_lotteryId] += msg.value;
         emit TicketPurchased(_lotteryId, msg.sender, lottery.ticketOwnersArray.length);
     }
 
     function chooseWinner(uint256 _lotteryId) external {
         Lottery storage lottery = lotteryIds[_lotteryId];
-
-        // Ensure the lottery's deadline has passed and there's no winner yet
-        require(block.timestamp > lottery.deadline, "Lottery is still active");
+        require(block.number > lottery.endBlock, "Lottery is still active"); // Check against endBlock
         require(lottery.winner == address(0), "Winner has already been chosen");
         require(lottery.ticketOwnersArray.length > 0, "No tickets were sold");
 
-        // Using the blockhash of a future block for randomness
-        // Note: This should ideally be a block after the deadline
-        uint256 blockNumber = block.number - 1;
+        uint256 blockNumber = block.number - 1; // Ideally, use a block number that's known to be valid
         uint256 randomHash = uint(blockhash(blockNumber));
-
-        // Ensure the blockhash is not zero (only valid for the last 256 blocks)
         require(randomHash != 0, "Blockhash not available");
 
-        // Selecting a random index from the ticketOwnersArray
         uint256 randomIndex = randomHash % lottery.ticketOwnersArray.length;
         address winner = lottery.ticketOwnersArray[randomIndex];
-
-        // Setting the winner
         lottery.winner = winner;
-
         emit WinnerChosen(_lotteryId, winner);
     }
 
-
     function claimWinnings(uint256 _lotteryId) external {
-        require(lotteryIds[_lotteryId].winner == msg.sender, "You are not the winner");
-        require(block.number <= 256, "You are too late");
-        payable(msg.sender).transfer(lotteryIds[_lotteryId].prize);
-        emit WinningsClaimed(_lotteryId, msg.sender, lotteryIds[_lotteryId].prize);
+        Lottery storage lottery = lotteryIds[_lotteryId];
+        require(lottery.winner == msg.sender, "You are not the winner");
+        require(block.number <= lottery.endBlock + 256, "Claim period has expired"); // Corrected logic for claim period
+
+        payable(msg.sender).transfer(lottery.prize);
+        emit WinningsClaimed(_lotteryId, msg.sender, lottery.prize);
+        lottery.prize = 0; // Reset prize to prevent double claiming
     }
-
-
-
-
-
-
-
-
-
 }
