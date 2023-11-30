@@ -36,6 +36,7 @@ contract LotteryContract {
     uint256 public lotteryId;
 
     function createLottery(uint256 _prize, uint256 _deadline) external {
+        require(_deadline > block.timestamp, "Deadline must be in the future");
         lotteryIds[lotteryId] = Lottery(lotteryId, _prize, _deadline, address(0), msg.sender);
         lotteryId++;
     }
