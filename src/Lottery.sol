@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 /*
-
 Simple lottery
 Any user can call createLottery and a lottery will be created with a ticket purchase window
 for the next 24 hours. Once the 24 hours is up, there is a 1 hour delay,
@@ -48,9 +47,32 @@ contract LotteryContract {
         lottery.ticketOwners[msg.sender] = ticket;
     }
 
-    function chooseWinner() internal {
+    function chooseWinner(uint256 _lotteryId) external {
+        Lottery storage lottery = lotteryIds[_lotteryId];
 
+        // Ensure the lottery's deadline has passed and there's no winner yet
+        require(block.timestamp > lottery.deadline, "Lottery is still active");
+        require(lottery.winner == address(0), "Winner has already been chosen");
+        require(lottery.ticketOwnersArray.length > 0, "No tickets were sold");
+
+        // Using the blockhash of a future block for randomness
+        // Note: This should ideally be a block after the deadline
+        uint256 blockNumber = block.number - 1;
+        uint256 randomHash = uint(blockhash(blockNumber));
+
+        // Ensure the blockhash is not zero (only valid for the last 256 blocks)
+        require(randomHash != 0, "Blockhash not available");
+
+        // Selecting a random index from the ticketOwnersArray
+        uint256 randomIndex = randomHash % lottery.ticketOwnersArray.length;
+        address winner = lottery.ticketOwnersArray[randomIndex];
+
+        // Setting the winner
+        lottery.winner = winner;
+
+        // Additional logic for handling the prize distribution can be added here
     }
+
 
     function claimWinnings() external {
 
