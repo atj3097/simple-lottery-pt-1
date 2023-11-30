@@ -36,14 +36,18 @@ contract LotteryContract {
 
     function createLottery(uint256 _prize, uint256 _deadline) external {
         require(_deadline > block.timestamp, "Deadline must be in the future");
-        lotteryIds[lotteryId] = Lottery(lotteryId, _prize, _deadline, address(0), msg.sender);
+        Lottery storage lottery = lotteryIds[lotteryId];
+        lottery.id = lotteryId;
+        lottery.prize = _prize;
+        lottery.deadline = _deadline;
+        lottery.owner = msg.sender;
         lotteryId++;
     }
 
     function getATicket(uint256 _lotteryId) public {
         require(lotteryIds[_lotteryId].deadline > block.timestamp, "Lottery has ended");
         Lottery storage lottery = lotteryIds[_lotteryId];
-        Ticket ticket = Ticket(msg.sender, lottery.ticketOwnersArray.length);
+        Ticket memory ticket = Ticket(msg.sender, lottery.ticketOwnersArray.length);
         lottery.ticketOwners[msg.sender] = ticket;
     }
 
