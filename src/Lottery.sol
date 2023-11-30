@@ -48,7 +48,9 @@ contract LotteryContract {
     function getATicket(uint256 _lotteryId) public payable {
         require(lotteryIds[_lotteryId].deadline > block.timestamp, "Lottery has ended");
         require(msg.value == 1 ether, "Ticket costs 1 ether");
-        address(this).transfer(msg.value);
+        require(lotteryBalances[_lotteryId] < lotteryIds[_lotteryId].prize, "Lottery is full");
+
+        payable(msg.sender).transfer(msg.value);
         Lottery storage lottery = lotteryIds[_lotteryId];
         Ticket memory ticket = Ticket(msg.sender, lottery.ticketOwnersArray.length);
         lottery.ticketOwners[msg.sender] = ticket;
