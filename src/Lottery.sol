@@ -35,6 +35,11 @@ contract LotteryContract {
     uint256 public lotteryId;
     mapping (uint256 => uint256) public lotteryBalances;
 
+    event LotteryCreated(uint256 lotteryId, uint256 prize, uint256 deadline, address owner);
+    event TicketPurchased(uint256 lotteryId, address owner, uint256 ticketId);
+    event WinnerChosen(uint256 lotteryId, address winner);
+    event WinningsClaimed(uint256 lotteryId, address winner, uint256 prize);
+
     function createLottery(uint256 _prize, uint256 _deadline) external {
         require(_deadline > block.timestamp, "Deadline must be in the future");
         Lottery storage lottery = lotteryIds[lotteryId];
@@ -43,6 +48,7 @@ contract LotteryContract {
         lottery.deadline = _deadline;
         lottery.owner = msg.sender;
         lotteryId++;
+        emit LotteryCreated(lottery.id, lottery.prize, lottery.deadline, lottery.owner);
     }
 
     function getATicket(uint256 _lotteryId) public payable {
@@ -55,6 +61,7 @@ contract LotteryContract {
         Ticket memory ticket = Ticket(msg.sender, lottery.ticketOwnersArray.length);
         lottery.ticketOwners[msg.sender] = ticket;
         lotteryBalances[_lotteryId] += msg.value;
+        emit TicketPurchased(_lotteryId, msg.sender, lottery.ticketOwnersArray.length);
     }
 
     function chooseWinner(uint256 _lotteryId) external {
@@ -80,7 +87,7 @@ contract LotteryContract {
         // Setting the winner
         lottery.winner = winner;
 
-        // Additional logic for handling the prize distribution can be added here
+        emit WinnerChosen(_lotteryId, winner);
     }
 
 
@@ -88,6 +95,7 @@ contract LotteryContract {
         require(lotteryIds[_lotteryId].winner == msg.sender, "You are not the winner");
         require(block.number <= 256, "You are too late");
         payable(msg.sender).transfer(lotteryIds[_lotteryId].prize);
+        emit WinningsClaimed(_lotteryId, msg.sender, lotteryIds[_lotteryId].prize);
     }
 
 
