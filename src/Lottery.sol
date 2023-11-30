@@ -19,7 +19,7 @@ contract LotteryContract {
 
     struct Ticket {
         address owner;
-        uint256 id;
+        uint256 ticketId;
     }
 
     struct Lottery {
@@ -36,12 +36,15 @@ contract LotteryContract {
     uint256 public lotteryId;
 
     function createLottery(uint256 _prize, uint256 _deadline) external {
-        lotteryIds[lotteryId] = Lottery(lotteryId, _prize, _deadline, address(0), address(0));
+        lotteryIds[lotteryId] = Lottery(lotteryId, _prize, _deadline, address(0), msg.sender);
         lotteryId++;
     }
 
-    function getATicket() public {
-
+    function getATicket(uint256 _lotteryId) public {
+        require(lotteryIds[_lotteryId].deadline > block.timestamp, "Lottery has ended");
+        Lottery storage lottery = lotteryIds[_lotteryId];
+        Ticket ticket = Ticket(msg.sender, lottery.ticketOwnersArray.length);
+        lottery.ticketOwners[msg.sender] = ticket;
     }
 
     function chooseWinner() internal {
